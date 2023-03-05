@@ -30,6 +30,9 @@ IEC6205621::IEC6205621(const char* p) {
 	} else if(listId.startsWith("LGF")) {
 		meterType = AmsTypeLandisGyr;
 		listId = listId.substring(0,4);
+	} else if(listId.startsWith("ZPA")) {
+		meterType = AmsTypeZpa;
+		listId = listId.substring(0,4);
 	} else {
 		meterType = AmsTypeUnknown;
 		listId = listId.substring(0,4);

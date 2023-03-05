@@ -764,6 +764,14 @@ bool AmsConfiguration::hasConfig() {
 					configVersion = 0;
 					return false;
 				}
+			case 102:
+				configVersion = -1; // Prevent loop
+				if(relocateConfig102()) {
+					configVersion = 103;
+				} else {
+					configVersion = 0;
+					return false;
+				}
 			case EEPROM_CHECK_SUM:
 				return true;
 			default:
@@ -961,6 +969,36 @@ bool AmsConfiguration::relocateConfig100() {
 	EEPROM.put(CONFIG_UI_START, ui);
 
 	EEPROM.put(EEPROM_CONFIG_ADDRESS, 101);
+	bool ret = EEPROM.commit();
+	EEPROM.end();
+	return ret;
+}
+
+bool AmsConfiguration::relocateConfig102() {
+
+	MeterConfig102 meter102;
+	MeterConfig meter;
+	EEPROM.begin(EEPROM_SIZE);
+    EEPROM.get(CONFIG_METER_START, meter102);
+
+	meter.baud = meter102.baud;
+	meter.parity = meter102.parity;
+	meter.invert = meter102.invert;
+	meter.distributionSystem = meter102.distributionSystem;
+	meter.mainFuse=meter102.mainFuse;
+	meter.productionCapacity = meter102.productionCapacity;
+	memcpy(meter.encryptionKey, meter102.encryptionKey, 16);
+	memcpy(meter.authenticationKey, meter102.authenticationKey, 16);
+	meter.wattageMultiplier = meter102.wattageMultiplier;
+	meter.amperageMultiplier = meter102.amperageMultiplier;
+	meter.accumulatedMultiplier = meter102.accumulatedMultiplier;
+	meter.source = meter102.source;
+	meter.parser = meter102.parser;
+
+	meter.wattageMultiplier = 0;
+
+	EEPROM.put(CONFIG_METER_START, meter);
+	EEPROM.put(EEPROM_CONFIG_ADDRESS, 103);
 	bool ret = EEPROM.commit();
 	EEPROM.end();
 	return ret;
