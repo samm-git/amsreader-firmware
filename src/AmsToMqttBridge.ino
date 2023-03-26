@@ -174,6 +174,7 @@ void setup() {
 	ws.setPriceRegion(entsoe.area);
 	bool shared = false;
 	config.getMeterConfig(meterConfig);
+	meterConfig.mode_c = true; // XXX FIXME NEEDS TO BE FROM THE WEB INT
 	Serial.flush();
 	Serial.end();
 	if(gpioConfig.hanPin == 3) {
@@ -576,7 +577,7 @@ void loop() {
 		config.ackEnergyAccountingChange();
 	}
 	try {
-		if(readHanPort() || now - meterState.getLastUpdateMillis() > 30000) {
+		if(readHanPort(meterConfig.mode_c) || now - meterState.getLastUpdateMillis() > 30000) {
 			if(now - lastTemperatureRead > 15000) {
 				unsigned long start = millis();
 				if(hw.updateTemperatures()) {
@@ -600,7 +601,7 @@ void loop() {
 		meterState.setLastError(98);
 	}
 	try {
-		if(meterState.getListType() == 0) {
+		if(meterState.getListType() == 0 && meterConfig.mode_c == false) {
 			if(now - meterAutodetectLastChange > 20000 && (meterConfig.baud == 0 || meterConfig.parity == 0)) {
 				meterAutodetect = true;
 				meterAutoIndex++; // Default is to try the first one in setup()
@@ -609,7 +610,7 @@ void loop() {
 				setupHanPort(gpioConfig.hanPin, bauds[meterAutoIndex], parities[meterAutoIndex], inverts[meterAutoIndex], meterConfig.mode_c);
 				meterAutodetectLastChange = now;
 			}
-		} else if(meterAutodetect) {
+		} else if(meterAutodetect && meterConfig.mode_c == false) {
 			debugI("Meter serial autodetected, saving: %d, %d, %s", bauds[meterAutoIndex], parities[meterAutoIndex], inverts[meterAutoIndex] ? "true" : "false");
 			meterAutodetect = false;
 			meterConfig.baud = bauds[meterAutoIndex];
@@ -635,7 +636,7 @@ void setupHanPort(uint8_t pin, uint32_t baud, uint8_t parityOrdinal, bool invert
 	if(Debug.isActive(RemoteDebug::INFO)) Debug.printf((char*) F("(setupHanPort) Setting up HAN on pin %d with baud %d and parity %d\n"), pin, baud, parityOrdinal);
 
 	if(mode_c) {
-		debugD("iec62056-21 mode C is active");
+		debugD("iec62056-21 mode C is active, pin: %d", pin);
 		baud = 300; // always start on 300bps
 		parityOrdinal = 2; // 7N1
 		invert = 0;
@@ -700,7 +701,12 @@ void setupHanPort(uint8_t pin, uint32_t baud, uint8_t parityOrdinal, bool invert
 			hwSerial->begin(baud, serialConfig, -1, -1, invert);
 			uart_set_pin(UART_NUM_1, UART_PIN_NO_CHANGE, pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 		#elif defined(ESP32)
-			hwSerial->begin(baud, serialConfig, -1, -1, invert);
+			// hwSerial->begin(baud, serialConfig, -1, -1, invert);
+			//hwSerial = &Serial2;
+			// hwSerial->begin(300, SERIAL_7N1, 16, 17, true);
+			SoftwareSerial *hwSerial = new SoftwareSerial(16,17);
+			hwSerial->begin(300, SWSERIAL_7N1,16,17,true);
+			hwSerial->flush();
 		#else
 			hwSerial->begin(baud, serialConfig, SERIAL_FULL, 1, invert);
 		#endif
@@ -844,15 +850,31 @@ void swapWifiMode() {
 
 int len = 0;
 bool serialInit = false;
-bool readHanPort() {
-	if(!hanSerial->available()) return false;
+bool readHanPort(bool mode_c) {
+	debugD("readHanPort0");
+	if(!hanSerial->available() && !mode_c) return false;
+
+	debugD("readHanPort1");
 
 	// Before reading, empty serial buffer to increase chance of getting first byte of a data transfer
-	if(!serialInit) {
+	/* if(!serialInit) {
 		hanSerial->readBytes(hanBuffer, BUF_SIZE_HAN);
 		serialInit = true;
 		return false;
+	} */
+
+	/* hanSerial->flush(); */
+
+	if(mode_c) {
+		debugD("Send IEC 62056-21 MODE C init");
+		hanSerial->printf("/?!\r\n");
+		delay(5000);
+		debugD("Available bytes: %d", hanSerial->available());
 	}
+	// while (hanSerial->available() == 0) {}     //wait for data available
+	debugD("readHanPort2");
+	String teststr = hanSerial->readString();
+	debugD("sting: %s", teststr);
 
 	DataParserContext ctx = {0};
 	int pos = DATA_PARSE_INCOMPLETE;

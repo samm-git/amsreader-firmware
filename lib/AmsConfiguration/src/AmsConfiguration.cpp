@@ -1165,6 +1165,7 @@ void AmsConfiguration::print(Print* debugger)
 		debugger->printf("Baud:                 %i\r\n", meter.baud);
 		debugger->printf("Parity:               %i\r\n", meter.parity);
 		debugger->printf("Invert serial:        %s\r\n", meter.invert ? "Yes" : "No");
+		debugger->printf("IEC 62056-21 MODE C:  %s\r\n", meter.mode_c ? "Yes" : "No");
 		debugger->printf("Distribution system:  %i\r\n", meter.distributionSystem);
 		debugger->printf("Main fuse:            %i\r\n", meter.mainFuse);
 		debugger->printf("Production Capacity:  %i\r\n", meter.productionCapacity);
